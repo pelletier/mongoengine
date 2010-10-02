@@ -56,6 +56,38 @@ class Document(BaseDocument):
 
     __metaclass__ = TopLevelDocumentMetaclass
 
+    @classmethod
+    def _get_collection(owner):
+        if not hasattr(owner, '_collection') or owner._collection is None:
+               db = _get_db()
+               collection = owner._get_collection_name()
+        
+               # Create collection as a capped collection if specified
+               if owner._meta['max_size'] or owner._meta['max_documents']:
+                   # Get max document limit and max byte size from meta
+                   max_size = owner._meta['max_size'] or 10000000 # 10MB default
+                   max_documents = owner._meta['max_documents']
+        
+                   if collection in db.collection_names():
+                       owner._collection = db[collection]
+                       # The collection already exists, check if its capped
+                       # options match the specified capped options
+                       options = owner._collection.options()
+                       if options.get('max') != max_documents or \
+                          options.get('size') != max_size:
+                           msg = ('Cannot create collection "%s" as a capped '
+                                  'collection as it already exists') % collection
+                           raise InvalidCollectionError(msg)
+                   else:
+                       # Create the collection as a capped collection
+                       opts = {'capped': True, 'size': max_size}
+                       if max_documents:
+                           opts['max'] = max_documents
+                       owner._collection = db.create_collection(collection, **opts)
+               else:
+                   owner._collection = db[collection]
+        return owner._collection
+
     def save(self, safe=True, force_insert=False):
         """Save the :class:`~mongoengine.Document` to the database. If the
         document already exists, it will be updated, otherwise it will be
@@ -71,7 +103,8 @@ class Document(BaseDocument):
         self.validate()
         doc = self.to_mongo()
         try:
-            collection = self.__class__.objects._collection
+            #collection = self.__class__.objects._collection
+            collection = self._get_collection( )
             if force_insert:
                 object_id = collection.insert(doc, safe=safe)
             else:
@@ -114,7 +147,7 @@ class Document(BaseDocument):
         :class:`~mongoengine.Document` type from the database.
         """
         db = _get_db()
-        db.drop_collection(cls._meta['collection'])
+        db.drop_collection(cls._get_collection_name())
 
 
 class MapReduceDocument(object):

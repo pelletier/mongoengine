@@ -232,7 +232,7 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         for base in bases:
             if hasattr(base, '_meta') and 'collection' in base._meta:
                 collection = base._meta['collection']
-
+                
                 id_field = id_field or base._meta.get('id_field')
                 base_indexes += base._meta.get('indexes', [])
 
@@ -343,6 +343,12 @@ class BaseDocument(object):
                                           field.__class__.__name__ + '"')
             elif field.required:
                 raise ValidationError('Field "%s" is required' % field.name)
+
+    @classmethod
+    def _get_collection_name(cls):
+        """Returns the collection name for this class.
+        """
+        return cls._meta['collection']
 
     @classmethod
     def _get_subclasses(cls):

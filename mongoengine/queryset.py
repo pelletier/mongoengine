@@ -792,7 +792,7 @@ class QuerySet(object):
 
         fields = [QuerySet._translate_field_name(self._document, f)
                   for f in fields]
-        collection = self._document._meta['collection']
+        collection = self._document._get_collection_name()
 
         scope = {
             'collection': collection,
@@ -903,37 +903,10 @@ class QuerySetManager(object):
             # Document class being used rather than a document object
             return self
 
-        if self._collection is None:
-            db = _get_db()
-            collection = owner._meta['collection']
-
-            # Create collection as a capped collection if specified
-            if owner._meta['max_size'] or owner._meta['max_documents']:
-                # Get max document limit and max byte size from meta
-                max_size = owner._meta['max_size'] or 10000000 # 10MB default
-                max_documents = owner._meta['max_documents']
-
-                if collection in db.collection_names():
-                    self._collection = db[collection]
-                    # The collection already exists, check if its capped
-                    # options match the specified capped options
-                    options = self._collection.options()
-                    if options.get('max') != max_documents or \
-                       options.get('size') != max_size:
-                        msg = ('Cannot create collection "%s" as a capped '
-                               'collection as it already exists') % collection
-                        raise InvalidCollectionError(msg)
-                else:
-                    # Create the collection as a capped collection
-                    opts = {'capped': True, 'size': max_size}
-                    if max_documents:
-                        opts['max'] = max_documents
-                    self._collection = db.create_collection(collection, **opts)
-            else:
-                self._collection = db[collection]
+        collection = owner._get_collection( )
 
         # owner is the document that contains the QuerySetManager
-        queryset = QuerySet(owner, self._collection)
+        queryset = QuerySet(owner, collection)
         if self._manager_func:
             if self._manager_func.func_code.co_argcount == 1:
                 queryset = self._manager_func(queryset)
