@@ -268,9 +268,9 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         # Set up collection manager, needs the class to have fields so use
         # DocumentMetaclass before instantiating CollectionManager object
         new_class = super_new(cls, name, bases, attrs)
-
+        
         # Provide a default queryset unless one has been manually provided
-        if not hasattr(new_class, 'objects') and not 'objects' in attrs:
+        if not hasattr(new_class, 'objects'):
             new_class.objects = QuerySetManager()
 
         user_indexes = [QuerySet._build_index_spec(new_class, spec)
