@@ -134,6 +134,13 @@ class DocumentMetaclass(type):
     """
 
     def __new__(cls, name, bases, attrs):
+        # if the document is already defined in the registry, it has 
+        # probably been imported from a different path. instead of
+        # creating a new copy, just return the registered one.
+        global _document_registry
+        if name in _document_registry:
+            return _document_registry[name]
+        
         metaclass = attrs.get('__metaclass__')
         super_new = super(DocumentMetaclass, cls).__new__
         if metaclass and issubclass(metaclass, DocumentMetaclass):
@@ -205,6 +212,7 @@ class DocumentMetaclass(type):
         new_class.add_to_class('MultipleObjectsReturned', exc)
 
         global _document_registry
+        assert name not in _document_registry, "Attempt to register document twice: " + name + ""
         _document_registry[name] = new_class
 
         return new_class
