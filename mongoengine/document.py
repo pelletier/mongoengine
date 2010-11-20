@@ -1,5 +1,5 @@
 from base import (DocumentMetaclass, TopLevelDocumentMetaclass, BaseDocument,
-                  ValidationError)
+                  ValidationError, unregister_document)
 from queryset import OperationError
 from connection import _get_db
 
@@ -117,6 +117,10 @@ class Document(BaseDocument):
         """
         db = _get_db()
         db.drop_collection(cls._meta['collection'])
+
+    @classmethod
+    def unregister(cls):
+        unregister_document(cls.__name__)
 
 
 class MapReduceDocument(object):

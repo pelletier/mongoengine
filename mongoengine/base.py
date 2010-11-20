@@ -11,6 +11,13 @@ _document_registry = {}
 def get_document(name):
     return _document_registry[name]
 
+def clear_document_registry():
+    global _document_registry
+    _document_registry = {}
+
+def unregister_document(name):
+    global _document_registry
+    del _document_registry[name]
 
 class ValidationError(Exception):
     pass
@@ -211,7 +218,6 @@ class DocumentMetaclass(type):
         exc = subclass_exception('MultipleObjectsReturned', base_excs, module)
         new_class.add_to_class('MultipleObjectsReturned', exc)
 
-        global _document_registry
         assert name not in _document_registry, "Attempt to register document twice: " + name + ""
         _document_registry[name] = new_class
 

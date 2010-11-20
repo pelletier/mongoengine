@@ -1,7 +1,7 @@
 from pymongo import Connection
 import multiprocessing
 
-__all__ = ['ConnectionError', 'connect']
+__all__ = ['ConnectionError', 'connect', 'disconnect']
 
 
 _connection_defaults = {
@@ -69,3 +69,11 @@ def connect(db, username=None, password=None, **kwargs):
     _db_password = password
     return _get_db(reconnect=True)
 
+def disconnect():
+    global _connection_settings, _db_name, _db_username, _db_password, _db
+    _db = {}
+    _connection = {}
+    _db_name = None
+    _db_username = None
+    _db_password = None
+    _connection_settings = _connection_defaults.copy()

@@ -7,11 +7,13 @@ import gridfs
 
 from mongoengine import *
 from mongoengine.connection import _get_db
+from mongoengine.base import clear_document_registry
 
 
 class FieldTest(unittest.TestCase):
 
     def setUp(self):
+        clear_document_registry()
         connect(db='mongoenginetest')
         self.db = _get_db()
 

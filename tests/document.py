@@ -4,11 +4,13 @@ import pymongo
 
 from mongoengine import *
 from mongoengine.connection import _get_db
+from mongoengine.base import clear_document_registry
 
 
 class DocumentTest(unittest.TestCase):
     
     def setUp(self):
+        clear_document_registry()
         connect(db='mongoenginetest')
         self.db = _get_db()
 
@@ -34,17 +36,17 @@ class DocumentTest(unittest.TestCase):
         name_field = StringField()
         age_field = IntField()
 
-        class Person(Document):
+        class DummyPerson(Document):
             name = name_field
             age = age_field
             non_field = True
         
-        self.assertEqual(Person._fields['name'], name_field)
-        self.assertEqual(Person._fields['age'], age_field)
-        self.assertFalse('non_field' in Person._fields)
-        self.assertTrue('id' in Person._fields)
+        self.assertEqual(DummyPerson._fields['name'], name_field)
+        self.assertEqual(DummyPerson._fields['age'], age_field)
+        self.assertFalse('non_field' in DummyPerson._fields)
+        self.assertTrue('id' in DummyPerson._fields)
         # Test iteration over fields
-        fields = list(Person())
+        fields = list(DummyPerson())
         self.assertTrue('name' in fields and 'age' in fields)
         # Ensure Document isn't treated like an actual document
         self.assertFalse(hasattr(Document, '_fields'))
@@ -183,21 +185,21 @@ class DocumentTest(unittest.TestCase):
         if collection in self.db.collection_names():
             self.db.drop_collection(collection)
 
-        class Person(Document):
+        class SpecialPerson(Document):
             name = StringField()
             meta = {'collection': collection}
         
-        user = Person(name="Test User")
+        user = SpecialPerson(name="Test User")
         user.save()
         self.assertTrue(collection in self.db.collection_names())
 
         user_obj = self.db[collection].find_one()
         self.assertEqual(user_obj['name'], "Test User")
 
-        user_obj = Person.objects[0]
+        user_obj = SpecialPerson.objects[0]
         self.assertEqual(user_obj.name, "Test User")
 
-        Person.drop_collection()
+        SpecialPerson.drop_collection()
         self.assertFalse(collection in self.db.collection_names())
 
     def test_inherited_collections(self):
@@ -257,6 +259,8 @@ class DocumentTest(unittest.TestCase):
         self.assertEqual(options['capped'], True)
         self.assertEqual(options['max'], 10)
         self.assertEqual(options['size'], 90000)
+
+        Log.unregister( )
 
         # Check that the document cannot be redefined with different options
         def recreate_log_document():
@@ -333,7 +337,9 @@ class DocumentTest(unittest.TestCase):
         # Two posts with the same slug is not allowed
         post2 = BlogPost(title='test2', slug='test')
         self.assertRaises(OperationError, post2.save)
-
+        
+        BlogPost.unregister( )
+        
         class Date(EmbeddedDocument):
             year = IntField(db_field='yr')
 
@@ -374,7 +380,7 @@ class DocumentTest(unittest.TestCase):
         self.assertRaises(ValidationError, create_invalid_user)
 
         def define_invalid_user():
-            class EmailUser(User):
+            class EmailUserWithPrimary(User):
                 email = StringField(primary_key=True)
         self.assertRaises(ValueError, define_invalid_user)
 

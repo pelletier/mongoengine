@@ -8,11 +8,13 @@ from datetime import datetime, timedelta
 from mongoengine.queryset import (QuerySet, MultipleObjectsReturned,
                                   DoesNotExist)
 from mongoengine import *
+from mongoengine.base import clear_document_registry
 
 
 class QuerySetTest(unittest.TestCase):
 
     def setUp(self):
+        clear_document_registry()
         connect(db='mongoenginetest')
 
         class Person(Document):
@@ -1091,6 +1093,44 @@ class QuerySetTest(unittest.TestCase):
 
         BlogPost.drop_collection()
 
+    def test_custom_manager_no_connection(self):
+        """Ensure that custom QuerySetManager instances work as expected
+        when overriding the default 'objects' queryset, even if it throws
+        an exception.
+        """
+        disconnect()
+
+        class BlogPost(Document):
+            tags = ListField(StringField())
+            deleted = BooleanField(default=False)
+
+            @queryset_manager
+            def objects(doc_cls, queryset):
+                return queryset(deleted=False)
+
+            @queryset_manager
+            def music_posts(doc_cls, queryset):
+                return queryset(tags='music', deleted=False)
+
+        connect(db='mongoenginetest')
+        BlogPost.drop_collection()
+
+        post1 = BlogPost(tags=['music', 'film'])
+        post1.save()
+        post2 = BlogPost(tags=['music'])
+        post2.save()
+        post3 = BlogPost(tags=['film', 'actors'])
+        post3.save()
+        post4 = BlogPost(tags=['film', 'actors'], deleted=True)
+        post4.save()
+
+        self.assertEqual([p.id for p in BlogPost.objects],
+                         [post1.id, post2.id, post3.id])
+        self.assertEqual([p.id for p in BlogPost.music_posts],
+                         [post1.id, post2.id])
+
+        BlogPost.drop_collection()
+
     def test_query_field_name(self):
         """Ensure that the correct field name is used when querying.
         """
@@ -1226,6 +1266,7 @@ class QuerySetTest(unittest.TestCase):
         """
         class Test(Document):
             testdict = DictField()
+        Test.drop_collection()
 
         t = Test(testdict={'f': 'Value'})
         t.save()
@@ -1233,6 +1274,7 @@ class QuerySetTest(unittest.TestCase):
         self.assertEqual(len(Test.objects(testdict__f__startswith='Val')), 0)
         self.assertEqual(len(Test.objects(testdict__f='Value')), 1)
         Test.drop_collection()
+        Test.unregister( )
 
         class Test(Document):
             testdict = DictField(basecls=StringField)
@@ -1379,6 +1421,9 @@ class QuerySetTest(unittest.TestCase):
 
 
 class QTest(unittest.TestCase):
+
+    def setUp(self):
+        clear_document_registry()
 
     def test_empty_q(self):
         """Ensure that empty Q objects won't hurt.
