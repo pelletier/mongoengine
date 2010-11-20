@@ -278,7 +278,9 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         new_class = super_new(cls, name, bases, attrs)
         
         # Provide a default queryset unless one has been manually provided
-        if not hasattr(new_class, 'objects'):
+        # Note: Check for existance in attrs because hasattr assumes it
+        # doesn't exist if any exception is raised, eg when not connected.
+        if 'objects' not in attrs:
             new_class.objects = QuerySetManager()
 
         user_indexes = [QuerySet._build_index_spec(new_class, spec)
