@@ -668,6 +668,47 @@ class DocumentTest(unittest.TestCase):
             	}
         self.assertRaises(ValueError, create_bad_abstract)
 
+    def test_callable_collection_name(self):
+        """Ensure collection names can be callables."""
+        
+        def _make_collection_name(cls):
+            return cls.__name__.lower() + '_augmented'
+        
+        # check it works with a normal document
+        class User(Document):
+            meta = {
+                'collection': _make_collection_name,
+            }
+            
+            username = StringField( )
+        
+        self.assertEqual(User._meta['collection'], 'user_augmented')
+        
+        # and with an abstract class
+        class AbstractUser(Document):
+            meta = {
+                'collection': _make_collection_name,
+                'abstract': True,
+            }
+            
+            username = StringField( )
+        
+        class RealUser(AbstractUser):
+            fancy = BooleanField( )
+        
+        class AnotherRealUser(AbstractUser):
+            fancy = BooleanField( )
+        
+        class InheritedUser(RealUser):
+            fancy = BooleanField( )
+    
+        self.assertEqual(RealUser._meta['collection'], \
+                         'realuser_augmented')
+        self.assertEqual(AnotherRealUser._meta['collection'], \
+                         'anotherrealuser_augmented')
+        self.assertEqual(InheritedUser._meta['collection'], \
+                         'realuser_augmented')
+
     def tearDown(self):
         self.Person.drop_collection()
         clear_document_registry()

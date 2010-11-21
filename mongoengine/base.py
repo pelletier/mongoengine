@@ -296,6 +296,7 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         
         # Allow dynamically-generated collection names. Pass the newly
         # created class so the callee has access to __module__, etc.
+        collection = new_class._meta['collection']
         if callable(collection):
             new_class._meta['collection'] = collection(new_class)
         
