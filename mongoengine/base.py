@@ -239,7 +239,17 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         # __metaclass__ is only set on the class with the __metaclass__ 
         # attribute (i.e. it is not set on subclasses). This differentiates
         # 'real' documents from the 'Document' class
-        if attrs.get('__metaclass__') == TopLevelDocumentMetaclass:
+        #
+        # Also assume a class is abstract if it has abstract set to True in
+        # its meta dictionary. This allows custom Document superclasses.
+        if attrs.get('__metaclass__') == TopLevelDocumentMetaclass or \
+            ('meta' in attrs and attrs['meta'].get('abstract', False)):
+            # check to make sure no base class was non-abstract
+            for base in bases:
+                if hasattr(base,'_meta') and 'abstract' in base._meta \
+                    and not base._meta['abstract']:
+                    raise ValueError( \
+                        'Abstract document cannot have non-abstract base')
             return super_new(cls, name, bases, attrs)
 
         collection = name.lower()
@@ -260,8 +270,9 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
 
                 id_field = id_field or base._meta.get('id_field')
                 base_indexes += base._meta.get('indexes', [])
-
+        
         meta = {
+            'abstract': False,
             'collection': collection,
             'max_documents': None,
             'max_size': None,
@@ -282,6 +293,9 @@ class TopLevelDocumentMetaclass(DocumentMetaclass):
         # Set up collection manager, needs the class to have fields so use
         # DocumentMetaclass before instantiating CollectionManager object
         new_class = super_new(cls, name, bases, attrs)
+        
+        if callable(collection):
+            new_class._meta['collection'] = collection(new_class)
         
         # Provide a default queryset unless one has been manually provided
         # Note: Check for existance in attrs because hasattr assumes it

@@ -630,8 +630,47 @@ class DocumentTest(unittest.TestCase):
 
         BlogPost.drop_collection()
 
+    def test_abstract_document(self):
+        """Ensure that a document superclass can be marked as abstract
+        thereby not using it as the name for the collection."""
+        
+        class SpecialDocument(Document):
+        	magic = BooleanField( )
+
+        	meta = {
+        		'abstract': True
+        	}
+        
+        class ExtraSpecialDocument(Document):
+        	extra_magic = BooleanField( )
+
+        	meta = {
+        		'abstract': True
+        	}
+        
+        class User(ExtraSpecialDocument):
+        	username = StringField( )
+
+        class FancyUser(User):
+        	fancy = BooleanField( )
+        
+        self.assertFalse('collection' in SpecialDocument._meta)
+        self.assertFalse('collection' in ExtraSpecialDocument._meta)
+        self.assertEqual(User._meta['collection'], 'user')
+        self.assertEqual(FancyUser._meta['collection'], 'user')
+        
+        def create_bad_abstract():
+            class BadAbstract(FancyUser):
+                evil = BooleanField( )
+
+            	meta = {
+            		'abstract': True
+            	}
+        self.assertRaises(ValueError, create_bad_abstract)
+
     def tearDown(self):
         self.Person.drop_collection()
+        clear_document_registry()
 
 
 if __name__ == '__main__':
