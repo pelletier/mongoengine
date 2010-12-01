@@ -5,6 +5,8 @@ from connection import _get_db
 
 import pymongo
 
+from mongoengine import signals
+
 
 __all__ = ['Document', 'EmbeddedDocument', 'ValidationError', 'OperationError']
 
@@ -69,9 +71,12 @@ class Document(BaseDocument):
             updates of existing documents
         :param validate: validates the document; set to ``False`` for skiping
         """
+        signals.pre_save.send(sender=self.__class__, instance=self)
+        
         if validate:
             self.validate()
         doc = self.to_mongo()
+        already_exists = '_id' in doc
         try:
             collection = self.__class__.objects._collection
             if force_insert:
@@ -85,6 +90,8 @@ class Document(BaseDocument):
             raise OperationError(message % unicode(err))
         id_field = self._meta['id_field']
         self[id_field] = self._fields[id_field].to_python(object_id)
+        
+        signals.post_save.send(sender=self.__class__, instance=self, created=(not already_exists))
 
     def delete(self, safe=False):
         """Delete the :class:`~mongoengine.Document` from the database. This
@@ -92,6 +99,8 @@ class Document(BaseDocument):
 
         :param safe: check if the operation succeeded before returning
         """
+        signals.pre_delete.send(sender=self.__class__, instance=self)
+        
         id_field = self._meta['id_field']
         object_id = self._fields[id_field].to_mongo(self[id_field])
         try:
@@ -99,6 +108,8 @@ class Document(BaseDocument):
         except pymongo.errors.OperationFailure, err:
             message = u'Could not delete document (%s)' % err.message
             raise OperationError(message)
+        
+        signals.post_delete.send(sender=self.__class__, instance=self)
 
     def reload(self):
         """Reloads all attributes from the database.
