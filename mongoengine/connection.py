@@ -1,5 +1,5 @@
 from pymongo import Connection
-import multiprocessing
+import threading
 
 __all__ = ['ConnectionError', 'connect', 'disconnect']
 
@@ -52,7 +52,11 @@ def _get_db(reconnect=False):
     return _db[identity]
 
 def get_identity():
-    identity = multiprocessing.current_process()._identity
+	# as per http://api.mongodb.org/python/1.6%2B/api/pymongo/database.html
+	# "When sharing a Connection between multiple threads,
+	# each **thread** will need to authenticate separately."
+	
+    identity = threading.current_thread().ident
     identity = 0 if not identity else identity[0]
     return identity
     
