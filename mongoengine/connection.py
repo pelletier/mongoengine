@@ -57,7 +57,7 @@ def get_identity():
 	# each **thread** will need to authenticate separately."
 	
     identity = threading.current_thread().ident
-    identity = 0 if not identity else identity[0]
+    identity = 0 if not identity else identity
     return identity
     
 def connect(db, username=None, password=None, **kwargs):
