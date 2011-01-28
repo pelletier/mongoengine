@@ -785,6 +785,32 @@ class FieldTest(unittest.TestCase):
         d2 = D()
         self.assertEqual(d2.data, {})
         self.assertEqual(d2.data2, {})
+    
+    def test_map_field(self):
+        """Ensure that the MapField works."""
+        
+        class SettingBase(EmbeddedDocument):
+            pass
+        
+        class StringSetting(SettingBase):
+            value = StringField()
+        
+        class IntegerSetting(SettingBase):
+            value = IntField()
+        
+        class Extensible(Document):
+            mapping = MapField(EmbeddedDocumentField(SettingBase))
+        
+        e = Extensible()
+        e.mapping['somestring'] = StringSetting( value='foo' )
+        e.mapping['someint'] = IntegerSetting( value=42 )
+        e.save( )
+        
+        e2 = Extensible.objects.get( id=e.id )
+        self.assertTrue( isinstance( e2.mapping['somestring'], StringSetting ) )
+        self.assertTrue( isinstance( e2.mapping['someint'], IntegerSetting ) )
+        
+        Extensible.drop_collection()
 
 if __name__ == '__main__':
     unittest.main()
