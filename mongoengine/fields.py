@@ -410,7 +410,7 @@ class DictField(BaseField):
                                   'contain "." or "$" characters')
 
     def lookup_member(self, member_name):
-        return self.basecls(db_field=member_name)
+        return DictField(basecls=self.basecls, db_field=member_name)
 
 class MapField(BaseField):
     """A field that maps a name to a specified field type. Similar to
