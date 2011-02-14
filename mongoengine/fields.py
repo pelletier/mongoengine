@@ -412,6 +412,16 @@ class DictField(BaseField):
     def lookup_member(self, member_name):
         return DictField(basecls=self.basecls, db_field=member_name)
 
+    def prepare_query_value(self, op, value):
+        # FIXME: get these from a standard place
+        match_operators = ['contains', 'icontains', 'startswith', 
+                           'istartswith', 'endswith', 'iendswith', 
+                           'exact', 'iexact']
+        if op in match_operators:
+            return StringField().prepare_query_value(op, value)
+        else:
+            return super(DictField,self).prepare_query_value(op, value)
+
 class MapField(BaseField):
     """A field that maps a name to a specified field type. Similar to
     a DictField, except the 'value' of each item must match the specified
