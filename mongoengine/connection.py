@@ -8,13 +8,13 @@ _connection_defaults = {
     'host': 'localhost',
     'port': 27017,
 }
-_connection = {}
 _connection_settings = _connection_defaults.copy()
 
 _db_name = None
 _db_username = None
 _db_password = None
-_db = {}
+
+_mongo_cache = threading.local()
 
 
 class ConnectionError(Exception):
@@ -22,43 +22,32 @@ class ConnectionError(Exception):
 
 
 def _get_connection(reconnect=False):
-    global _connection
-    identity = get_identity()
+    global _mongo_cache
     # Connect to the database if not already connected
-    if _connection.get(identity) is None or reconnect:
+    if not hasattr(_mongo_cache, 'connection') or reconnect:
         try:
-            _connection[identity] = Connection(**_connection_settings)
+            _mongo_cache.connection = Connection(**_connection_settings)
         except:
             raise ConnectionError('Cannot connect to the database')
-    return _connection[identity]
+    return _mongo_cache.connection
 
 def _get_db(reconnect=False):
-    global _db, _connection
-    identity = get_identity()
-    # Connect if not already connected
-    if _connection.get(identity) is None or reconnect:
-        _connection[identity] = _get_connection(reconnect=reconnect)
+    global _mongo_cache
 
-    if _db.get(identity) is None or reconnect:
+    if not hasattr(_mongo_cache, 'db') or reconnect:
+        # Connect if not already connected
+        connection = _get_connection(reconnect=reconnect)
+        
         # _db_name will be None if the user hasn't called connect()
         if _db_name is None:
             raise ConnectionError('Not connected to the database')
 
         # Get DB from current connection and authenticate if necessary
-        _db[identity] = _connection[identity][_db_name]
+        _mongo_cache.db = connection[_db_name]
         if _db_username and _db_password:
-            _db[identity].authenticate(_db_username, _db_password)
-
-    return _db[identity]
-
-def get_identity():
-	# as per http://api.mongodb.org/python/1.6%2B/api/pymongo/database.html
-	# "When sharing a Connection between multiple threads,
-	# each **thread** will need to authenticate separately."
-	
-    identity = threading.current_thread().ident
-    identity = 0 if not identity else identity
-    return identity
+            _mongo_cache.db.authenticate(_db_username, _db_password)
+    
+    return _mongo_cache.db
     
 def connect(db, username=None, password=None, **kwargs):
     """Connect to the database specified by the 'db' argument. Connection 
@@ -66,7 +55,7 @@ def connect(db, username=None, password=None, **kwargs):
     the default port on localhost. If authentication is needed, provide
     username and password arguments as well.
     """
-    global _connection_settings, _db_name, _db_username, _db_password, _db
+    global _connection_settings, _db_name, _db_username, _db_password
     _connection_settings = dict(_connection_defaults, **kwargs)
     _db_name = db
     _db_username = username
@@ -74,9 +63,8 @@ def connect(db, username=None, password=None, **kwargs):
     return _get_db(reconnect=True)
 
 def disconnect():
-    global _connection_settings, _db_name, _db_username, _db_password, _db
-    _db = {}
-    _connection = {}
+    global _connection_settings, _db_name, _db_username, _db_password, _mongo_cache
+    _mongo_cache = threading.local()
     _db_name = None
     _db_username = None
     _db_password = None
