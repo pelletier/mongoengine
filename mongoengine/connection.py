@@ -1,7 +1,7 @@
 from pymongo import Connection
 import threading
 
-__all__ = ['ConnectionError', 'connect', 'disconnect']
+__all__ = ['ConnectionError', 'connect', 'disconnect', 'disconnect_current_thread']
 
 
 _connection_defaults = {
@@ -69,3 +69,10 @@ def disconnect():
     _db_username = None
     _db_password = None
     _connection_settings = _connection_defaults.copy()
+
+def disconnect_current_thread():
+    if hasattr(_mongo_cache, 'connection'):
+        _mongo_cache.connection.disconnect( )
+        del _mongo_cache.connection
+    if hasattr(_mongo_cache, 'db'):
+        del _mongo_cache.db
