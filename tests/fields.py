@@ -1,5 +1,6 @@
 import unittest
 import datetime
+from random import randint
 from decimal import Decimal
 
 import pymongo
@@ -811,6 +812,108 @@ class FieldTest(unittest.TestCase):
         self.assertTrue( isinstance( e2.mapping['someint'], IntegerSetting ) )
         
         Extensible.drop_collection()
+
+
+class Example(Document):
+    date = RealDateTimeField()
+
+
+class TestRealDateField(unittest.TestCase):
+
+    def setUp(self):
+        self._clean()
+
+    def tearDown(self):
+        self._clean()
+
+    def _clean(self):
+        #from mongoengine.connection import _get_db
+        #db = _get_db()
+        #db.drop_collection("example")
+        clear_document_registry()
+        connect(db='mongoenginetest')
+        self.db = _get_db()
+        self.db.drop_collection("example")
+
+    def _generate_date(self, years_range=(1950, 2011)):
+        year = randint(years_range[0], years_range[1])
+        month = randint(1,12)
+        day = randint(1,25) #to avoid problems
+        hour = randint(0,23)
+        minute = randint(0, 59)
+        seconds = randint(0, 59)
+        microsecond = randint(0, 999999)
+
+        return datetime.datetime(year,month,day,hour,minute,seconds,microsecond)
+
+    def test_basics(self):
+        d1 = self._generate_date()
+        a = Example(date=d1)
+        self.assertEqual(a.date, d1)
+        a.save()
+
+        b = Example.objects.get(id=a.id)
+        self.assertEqual(a.date, d1)
+        self.assertEqual(a.date, b.date)
+
+        d2 = self._generate_date()
+        a.date = d2
+        self.assertEqual(a.date, d2)
+        a.save()
+        b = Example.objects.get(id=a.id)
+        self.assertEqual(a.date, d2)
+        self.assertEqual(a.date, b.date)
+
+    def test_get(self):
+        d = self._generate_date()
+        a = Example(date=d)
+        a.save()
+
+        r = Example.objects.filter(date=d)
+        self.assertEqual(len(r), 1)
+        self.assertEqual(r[0], a)
+
+
+    def test_order_by(self):
+        for i in range(10):
+            d = self._generate_date()
+            a = Example(date=d)
+            a.save()
+
+        result = list(Example.objects.order_by("date"))
+
+        for i in range(len(result)):
+            if not i == len(result)-1:
+                self.assertTrue(result[i].date <= result[i+1].date)
+
+        result = list(Example.objects.order_by("-date"))
+
+        for i in range(len(result)):
+            if not i == len(result)-1:
+                self.assertTrue(result[i].date >= result[i+1].date)
+
+    def test_inequalities(self):
+        for i in range(10):
+            d = self._generate_date(years_range=(2001,2010))
+            a = Example(date=d)
+            a.save()
+
+        for i in range(10):
+            d = self._generate_date(years_range=(1981,1989))
+            a = Example(date=d)
+            a.save()
+
+        r1 = list(Example.objects.filter(date__gte=datetime.datetime(1980,1,1)))
+        self.assertEqual(len(r1), 20)
+
+        r2 = list(Example.objects.filter(date__lte=datetime.datetime(2011,1,1)))
+        self.assertEqual(len(r2), 20)
+
+        r3 = list(Example.objects.filter(date__lte=datetime.datetime(2011,1,1),
+                                         date__gte=datetime.datetime(2000,1,1)))
+        self.assertEqual(len(r3), 10)
+
+
 
 if __name__ == '__main__':
     unittest.main()

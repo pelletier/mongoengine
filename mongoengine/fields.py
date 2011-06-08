@@ -16,10 +16,11 @@ import types
 
 
 __all__ = ['StringField', 'IntField', 'FloatField', 'BooleanField',
-           'DateTimeField', 'EmbeddedDocumentField', 'ListField', 'DictField',
-           'ObjectIdField', 'ReferenceField', 'ValidationError', 'MapField',
-           'DecimalField', 'URLField', 'GenericReferenceField', 'FileField',
-           'BinaryField', 'SortedListField', 'EmailField', 'GeoPointField']
+           'DateTimeField', 'RealDateTimeField', 'EmbeddedDocumentField',
+           'ListField', 'DictField', 'ObjectIdField', 'ReferenceField',
+           'ValidationError', 'MapField', 'DecimalField', 'URLField',
+           'GenericReferenceField', 'FileField', 'BinaryField',
+           'SortedListField', 'EmailField', 'GeoPointField']
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'
 
@@ -226,6 +227,105 @@ class DateTimeField(BaseField):
 
     def validate(self, value):
         assert isinstance(value, datetime.datetime)
+
+
+class RealDateTimeField(StringField):
+    """
+    This field behaves like a Python `datetime` object, but it is stored as a
+    string in MongoDB.
+    Why a string? Because MongoDB cannot do `gte` and `lte` filtering operations
+    on a list. However, it uses lexicographical comparison when filtering
+    / sorting strings, which is pretty handy in this case.
+
+    Basically, the stored string has the following format:
+
+        YYYY,MM,DD,HH,MM,SS,NNNNNN
+
+    Where NNNNNN is the number of microseconds of the represented `datetime`.
+    The `,` as the separator can be easily modified by passing the `separator`
+    keyword when initializing the field.
+    """
+
+    def __init__(self, separator=',', **kwargs):
+        self.names = ['year', 'month', 'day', 'hour', 'minute', 'second',
+                      'microsecond']
+        self.separtor = separator
+        super(RealDateTimeField, self).__init__(**kwargs)
+
+    def _leading_zero(self, number):
+        """
+        Convert the given number to a string.
+        If it has only one digit, a leading zero so as it has always at least
+        two digits.
+
+        >>> a = RealDateTimeField()
+        >>> a._leading_zero(12)
+        '12'
+        >>> a._leading_zero(4)
+        '04'
+        >>> a._leading_zero("5")
+        '05'
+        """
+        if int(number) < 10:
+            return "0"+str(number)
+        else:
+            return str(number)
+
+    def _convert_from_datetime(self, val):
+        """
+        Convert a `datetime` object to a string representation (which will be
+        stored in MongoDB). This is the reverse function of
+        `_convert_from_string`.
+
+        >>> a = datetime(2011, 6, 8, 20, 26, 24, 192284)
+        >>> RealDateTimeField()._convert_from_datetime(a)
+        '2011,06,08,20,26,24,192284'
+        """
+        data = []
+        for name in self.names:
+            data.append(self._leading_zero(getattr(val, name)))
+        return ','.join(data)
+
+    def _convert_from_string(self, data):
+        """
+        Convert a string representation to a `datetime` object (the object you
+        will manipulate). This is the reverse function of
+        `_convert_from_datetime`.
+
+        >>> a = '2011,06,08,20,26,24,192284'
+        >>> RealDateTimeField()._convert_from_string(a)
+        datetime.datetime(2011, 6, 8, 20, 26, 24, 192284)
+        """
+        data = data.split(',')
+        data = map(int, data)
+        values = {}
+        for i in range(7):
+            values[self.names[i]] = data[i]
+        return datetime.datetime(**values)
+
+    def __get__(self, instance, owner):
+        data = super(RealDateTimeField, self).__get__(instance, owner)
+        if data == None:
+            return datetime.datetime.now()
+        return self._convert_from_string(data)
+
+    def __set__(self, obj, val):
+        data = self._convert_from_datetime(val)
+        return super(RealDateTimeField, self).__set__(obj, data)
+
+    def validate(self, value):
+        if not isinstance(value, datetime.datetime):
+            raise ValidationError('Only datetime objects may used in a \
+                                   RealDateTimeTimeField')
+
+    def to_python(self, value):
+        return self._convert_from_string(value)
+
+    def to_mongo(self, value):
+        return self._convert_from_datetime(value)
+
+    def prepare_query_value(self, op, value):
+        return self._convert_from_datetime(value)
 
 
 class EmbeddedDocumentField(BaseField):
