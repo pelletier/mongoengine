@@ -319,9 +319,13 @@ class RealDateTimeField(StringField):
                                    RealDateTimeTimeField')
 
     def to_python(self, value):
+        if isinstance(value, datetime.datetime):
+            return value
         return self._convert_from_string(value)
 
     def to_mongo(self, value):
+        if isinstance(value, (str, unicode)):
+            return value
         return self._convert_from_datetime(value)
 
     def prepare_query_value(self, op, value):
