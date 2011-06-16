@@ -310,7 +310,9 @@ class RealDateTimeField(StringField):
         return self._convert_from_string(data)
 
     def __set__(self, obj, val):
-        data = self._convert_from_datetime(val)
+        data = val
+        if not isinstance(val, (str, unicode)):
+            data = self._convert_from_datetime(val)
         return super(RealDateTimeField, self).__set__(obj, data)
 
     def validate(self, value):
@@ -329,6 +331,8 @@ class RealDateTimeField(StringField):
         return self._convert_from_datetime(value)
 
     def prepare_query_value(self, op, value):
+        if isinstance(value, (str, unicode)):
+            return value
         return self._convert_from_datetime(value)
 
 
